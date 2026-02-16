@@ -1,254 +1,194 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra Realistic Flappy Bird</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background: linear-gradient(to bottom, #87CEEB, #98FB98);
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }
-        canvas {
-            border: 2px solid #333;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-        #gameOver {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            display: none;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        #score {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        #highscore {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 18px;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Ultra Modi Bird Game</title>
+<style>
+body { margin: 0; overflow: hidden; background: linear-gradient(#87CEEB, #ffffff); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+#game { position: relative; width: 100vw; height: 100vh; cursor: pointer; }
+
+/* 📸 Bird Image Setup */
+.bird { 
+  width: 65px; 
+  height: 65px; 
+  background-image: url('https://globalwiki.org/images/3/3e/Narendra-Modi.jpeg');
+  background-size: cover;
+  background-position: center;
+  border-radius: 50%; 
+  border: 3px solid #ff9933; /* Saffron border */
+  position: absolute; 
+  left: 100px; 
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  z-index: 5;
+}
+
+.pipe { width: 60px; background: #138808; position: absolute; border: 2px solid #fff; border-radius: 5px; }
+.info { position: absolute; top: 15px; left: 15px; font-size: 22px; font-weight: bold; z-index: 10; color: #333; text-shadow: 1px 1px white; }
+.game-over { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 50px; display: none; z-index: 20; color: #d32f2f; font-weight: 900; }
+button { padding: 15px 35px; font-size: 20px; cursor: pointer; background: #ff9933; color: white; border: none; border-radius: 50px; font-weight: bold; box-shadow: 0 4px #e67e22; }
+button:active { box-shadow: 0 2px #e67e22; transform: translateY(2px); }
+#start-msg { position: absolute; top: 50%; width: 100%; text-align: center; font-size: 26px; color: #1e3799; font-weight: bold; }
+</style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
-    <div id="gameOver">
-        <h2>Game Over</h2>
-        <p id="finalScore"></p>
-        <button id="restartBtn">Restart</button>
-    </div>
-    <div id="score">Score: 0</div>
-    <div id="highscore">Highscore: 0</div>
-    <audio id="bgMusic" loop>
-        <source src="bg.mp3" type="audio/mpeg">
-    </audio>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const gameOverDiv = document.getElementById('gameOver');
-        const restartBtn = document.getElementById('restartBtn');
-        const scoreDiv = document.getElementById('score');
-        const highscoreDiv = document.getElementById('highscore');
-        const bgMusic = document.getElementById('bgMusic');
+<div id="game" onclick="handleInput()">
+  <div class="info">
+    Score: <span id="score">0</span> | Lives: <span id="lives">3</span> | Level: <span id="level">1</span>
+  </div>
 
-        // Bird image
-        const birdImg = new Image();
-        birdImg.src = 'https://play-lh.googleusercontent.com/6UILUpNucHVymzHmhce5X3MkOb5NXHynGDRi5p1RGeFuPn5WaefNhI2zhZV5q6wI3c4';
+  <div id="start-msg">Tap to Fly & Play Remix Song! 🎵</div>
+  <div class="bird" id="bird" style="top: 250px;"></div>
 
-        // Game variables
-        let bird = { x: 50, y: 300, width: 40, height: 40, velocity: 0 };
-        let gravity = 0.6;
-        let jump = -12;
-        let pipes = [];
-        let score = 0;
-        let highscore = localStorage.getItem('highscore') || 0;
-        let gameRunning = true;
-        let level = 1;
-        let pipeSpeed = 2;
-        let pipeGap = 150;
+  <div class="game-over" id="gameOver">
+    GAME OVER <br><br>
+    <button onclick="resetGameValues()">Restart Mission</button>
+  </div>
 
-        highscoreDiv.textContent = `Highscore: ${highscore}`;
+  <audio id="bgMusic" loop>
+    <source src="bg.mp3" type="audio/mpeg">
+  </audio>
+</div>
 
-        // Pipe class
-        class Pipe {
-            constructor(x) {
-                this.x = x;
-                this.width = 50;
-                this.topHeight = Math.random() * (canvas.height - pipeGap - 50) + 50;
-                this.bottomY = this.topHeight + pipeGap;
-            }
-            draw() {
-                ctx.fillStyle = '#228B22';
-                ctx.fillRect(this.x, 0, this.width, this.topHeight);
-                ctx.fillRect(this.x, this.bottomY, this.width, canvas.height - this.bottomY);
-                // Add shadows for realism
-                ctx.fillStyle = '#006400';
-                ctx.fillRect(this.x + 2, this.topHeight - 10, this.width - 4, 10);
-                ctx.fillRect(this.x + 2, this.bottomY, this.width - 4, 10);
-            }
-            update() {
-                this.x -= pipeSpeed;
-            }
-        }
+<script>
+let bird = document.getElementById("bird");
+let scoreEl = document.getElementById("score");
+let livesEl = document.getElementById("lives");
+let levelEl = document.getElementById("level");
+let gameOverEl = document.getElementById("gameOver");
+let bgMusic = document.getElementById("bgMusic");
+let game = document.getElementById("game");
+let startMsg = document.getElementById("start-msg");
 
-        // Initialize pipes
-        function initPipes() {
-            pipes = [];
-            for (let i = 0; i < 3; i++) {
-                pipes.push(new Pipe(400 + i * 200));
-            }
-        }
+let birdY, velocity, score, lives, level, speed, pipes, gameRunning, musicStarted;
+let gravity = 0.45;
+let lift = -8.5;
+let pipeInterval;
 
-        // Draw bird
-        function drawBird() {
-            ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
-        }
+function init() {
+  birdY = 250;
+  velocity = 0;
+  score = 0;
+  lives = 3;
+  level = 1;
+  speed = 4;
+  pipes = [];
+  gameRunning = false;
+  musicStarted = false;
+  
+  scoreEl.textContent = score;
+  livesEl.textContent = lives;
+  levelEl.textContent = level;
+  bird.style.top = birdY + "px";
+}
 
-        // Update game
-        function update() {
-            if (!gameRunning) return;
+function startGame() {
+  if (gameRunning) return;
+  gameRunning = true;
+  startMsg.style.display = "none";
+  gameOverEl.style.display = "none";
+  
+  // Audio start logic
+  if (!musicStarted) {
+    bgMusic.currentTime = 0; // Start from beginning
+    bgMusic.play().catch(e => console.log("Music needs interaction"));
+    musicStarted = true;
+  }
 
-            // Bird physics
-            bird.velocity += gravity;
-            bird.y += bird.velocity;
+  if (pipeInterval) clearInterval(pipeInterval);
+  pipeInterval = setInterval(createPipe, 1700);
+  requestAnimationFrame(gameLoop);
+}
 
-            // Check ground/ceiling collision
-            if (bird.y + bird.height >= canvas.height || bird.y <= 0) {
-                gameOver();
-            }
+function createPipe() {
+  if(!gameRunning) return;
+  let pipeTopHeight = Math.random() * 280 + 50;
+  let gap = 190;
 
-            // Update pipes
-            pipes.forEach(pipe => {
-                pipe.update();
-                // Check collision
-                if (bird.x < pipe.x + pipe.width && bird.x + bird.width > pipe.x &&
-                    (bird.y < pipe.topHeight || bird.y + bird.height > pipe.bottomY)) {
-                    gameOver();
-                }
-                // Score
-                if (pipe.x + pipe.width < bird.x && !pipe.passed) {
-                    pipe.passed = true;
-                    score++;
-                    scoreDiv.textContent = `Score: ${score}`;
-                    // Level up every 5 points
-                    if (score % 5 === 0) {
-                        level++;
-                        pipeSpeed += 0.5;
-                        pipeGap = Math.max(100, pipeGap - 10);
-                    }
-                }
-            });
+  let topPipe = document.createElement("div");
+  topPipe.classList.add("pipe");
+  topPipe.style.height = pipeTopHeight + "px";
+  topPipe.style.top = "0px";
+  topPipe.style.left = window.innerWidth + "px";
 
-            // Remove off-screen pipes and add new ones
-            if (pipes[0].x + pipes[0].width < 0) {
-                pipes.shift();
-                pipes.push(new Pipe(pipes[pipes.length - 1].x + 200));
-            }
-        }
+  let bottomPipe = document.createElement("div");
+  bottomPipe.classList.add("pipe");
+  bottomPipe.style.height = (window.innerHeight - pipeTopHeight - gap) + "px";
+  bottomPipe.style.bottom = "0px";
+  bottomPipe.style.left = window.innerWidth + "px";
 
-        // Draw game
-        function draw() {
-            // Background
-            ctx.fillStyle = 'linear-gradient(to bottom, #87CEEB, #98FB98)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+  game.appendChild(topPipe);
+  game.appendChild(bottomPipe);
+  pipes.push({top: topPipe, bottom: bottomPipe});
+}
 
-            // Pipes
-            pipes.forEach(pipe => pipe.draw());
+function gameLoop() {
+  if(!gameRunning) return;
 
-            // Bird
-            drawBird();
-        }
+  velocity += gravity;
+  birdY += velocity;
+  bird.style.top = birdY + "px";
 
-        // Game loop
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
+  for (let i = pipes.length - 1; i >= 0; i--) {
+    let p = pipes[i];
+    let left = p.top.offsetLeft - speed;
+    p.top.style.left = left + "px";
+    p.bottom.style.left = left + "px";
 
-        // Jump
-        function jumpBird() {
-            if (gameRunning) {
-                bird.velocity = jump;
-            }
-        }
+    // Precise Collision Detection for the circular image
+    if (bird.offsetLeft + 55 > left && bird.offsetLeft < left + 60 &&
+       (birdY < p.top.offsetHeight || birdY + 55 > window.innerHeight - p.bottom.offsetHeight)) {
+      lives--;
+      livesEl.textContent = lives;
+      p.top.remove(); p.bottom.remove();
+      pipes.splice(i, 1);
+      if (lives <= 0) endGame();
+      continue;
+    }
 
-        // Game over
-        function gameOver() {
-            gameRunning = false;
-            bgMusic.pause();
-            if (score > highscore) {
-                highscore = score;
-                localStorage.setItem('highscore', highscore);
-                highscoreDiv.textContent = `Highscore: ${highscore}`;
-            }
-            document.getElementById('finalScore').textContent = `Score: ${score} | Highscore: ${highscore}`;
-            gameOverDiv.style.display = 'block';
-        }
+    if (left < -60) {
+      p.top.remove(); p.bottom.remove();
+      pipes.splice(i, 1);
+      score++;
+      scoreEl.textContent = score;
+      if(score % 5 === 0) { 
+        level++; 
+        levelEl.textContent = level; 
+        speed += 0.6; 
+      }
+    }
+  }
 
-        // Restart
-        function restart() {
-            bird.y = 300;
-            bird.velocity = 0;
-            score = 0;
-            level = 1;
-            pipeSpeed = 2;
-            pipeGap = 150;
-            scoreDiv.textContent = `Score: 0`;
-            gameRunning = true;
-            initPipes();
-            gameOverDiv.style.display = 'none';
-            bgMusic.currentTime = 0;
-            bgMusic.play();
-        }
+  if (birdY > window.innerHeight || birdY < 0) endGame();
+  requestAnimationFrame(gameLoop);
+}
 
-        // Event listeners
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                jumpBird();
-            }
-        });
-        canvas.addEventListener('click', jumpBird);
-        restartBtn.addEventListener('click', restart);
+function endGame() {
+  gameRunning = false;
+  clearInterval(pipeInterval);
+  gameOverEl.style.display = "block";
+  // Music continues to play "Pehla Nasha" even on game over!
+}
 
-        // Start game
-        initPipes();
-        bgMusic.play();
-        gameLoop();
-    </script>
+function resetGameValues() {
+  document.querySelectorAll('.pipe').forEach(p => p.remove());
+  init();
+  startGame();
+}
+
+function handleInput() {
+  if (!gameRunning && lives > 0) startGame();
+  if (gameRunning) {
+    velocity = lift;
+    if (!musicStarted) { bgMusic.play(); musicStarted = true; }
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "ArrowUp") handleInput();
+});
+
+init();
+</script>
 </body>
 </html>
